@@ -1,0 +1,66 @@
+#### Creating a cluster of EKS
+
+
+Step 1) go to kubernetes.io(Official website)  
+		---- click on documentation 
+		---- click on setup k8s cluster where you can find "Install the kubeadm setup tool"(https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
+
+				Before you begins few points you need to consider while doing setup on eks
+				A compatible Linux host. The Kubernetes project provides generic instructions for Linux distributions based on Debian and Red Hat, and those distributions without a package manager.
+				*) 2 GB or more of RAM per machine (any less will leave little room for your apps).
+				*) 2 CPUs or more.
+
+Step 2) Install kubeadm, kublet and kubectl
+		kubeadm: the command to bootstrap the cluster.
+		kubelet: the component that runs on all of the machines in your cluster and does things like starting pods and containers.
+		kubectl: the command line util to talk to your cluster.
+		
+cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+exclude=kubelet kubeadm kubectl
+EOF
+		Important points 
+		*)kubeadm will not install or manage kubelet or kubectl for you, so you will need to ensure they match the version of the Kubernetes control plane you want kubeadm to install for you.
+		*)the kubelet running 1.7.0 should be fully compatible with a 1.8.0 API server, but not vice versa.
+		
+
+Step 3) Dissable SE linux or Set SELinux in permissive mode (effectively disabling it)
+sudo setenforce 0
+sudo sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+
+step 4) sudo yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+
+Step 5) install docker on AWS EC2 instance 
+		Launch an instance with the Amazon Linux 2 AMI. For more information, see Launching an instance in the Amazon EC2 User Guide for Linux Instances.
+		
+		5a) sudo yum update -y
+		
+		5b) sudo amazon-linux-extras install docker   
+					----(Alert!!! you may get this issue "amazon-linux-extras: command not found" it is because you must have picked amazon linux 2023 ami while launching the server the command "amazon-linux-extras" will work only in amazon-linux-2.)
+		5c) sudo service docker start
+		docker pull hello-world
+
+Step 6) sudo systemctl enable --now kubelet
+
+Step 7) dissable the swappiness
+swapoff -a
+
+step 8) kubeadm initialization 
+kubeadm init --pod-network-cidr=192.168.0.0/16
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+  kubectl get nodes
+  kubectl describe node ip-172-31-32-196.eu-west-1.compute.internal
+  curl https://raw.githubusercontent.com/projectcalico/calico/v3.25.1/manifests/calico.yaml -O
+  kubectl apply -f calico.yaml
+  
+  
+  
+  
+  eksctl create cluster --name demo-eks --region eu-west-1 --fargate
